@@ -1,0 +1,359 @@
+---
+title: "AA18.1: Analyses bivariées"
+output:
+  html_document:
+    df_print: paged
+---
+Faire une analyse bivariée, c'est étudier la relation entre deux variables : sont-elles liées ? les valeurs de l'une influencent-elles les valeurs de l'autre ? ou sont-elles au contraire indépendantes ?
+
+À noter qu'on va parler ici d'influence ou de lien, mais pas de relation de cause à effet : les outils présentés permettent de visualiser ou de déterminer une relation, mais des liens de causalité proprement dit sont plus difficiles à mettre en évidence. Il faut en effet vérifier que c'est bien telle variable qui influence telle autre et pas l'inverse, qu'il n'y a pas de "variable cachée", etc.
+
+Nous ne verrons ici que quelques exemples... pour appronfondir lire la section dédiée [ici](https://juba.github.io/tidyverse/04-bivarie.html)
+
+
+Là encore, le type d'analyse ou de visualisation est déterminé par la nature qualitative ou quantitative des deux variables.
+
+## Croisement de deux variables qualitatives
+
+### Tableaux croisés
+
+On va continuer à travailler avec le jeu de données tiré de paléometalurgique de Benjamin Jagou. le jeu de données `culot` et le renommer en un nom plus court (si ce n'est déjà fait) pour gagner un peu de temps de saisie au clavier :
+
+```{r, eval=FALSE}
+c <- culot
+```
+
+Quand on veut croiser deux variables qualitatives, on fait un *tableau croisé*. Comme pour un tri à plat ceci s'obtient avec la fonction `table` de R, mais à laquelle on passe cette fois deux variables en argument. Par exemple, si on veut croiser la catégorie socio professionnelle et le sexe des enquêtés :
+
+```{r, eval=FALSE}
+table(c$aspect, c$magnetisme)
+```
+
+Ou l'inverse:
+```{r, eval=FALSE}
+table(c$magnetisme, c$aspect)
+```
+
+Il serait intéressant d'avoir le même tableau mais avec les fréquences. Pour cela il va falloir procéder en 2 temps:     
+* transformer le tableau croisé en matrice avec l'argument `as.matrix()`     
+* utiliser la fonction `prop.table()`sur le tableau matriciel nouvellement créé.
+
+C'est parti:
+```{r, eval=FALSE}
+# Transformer mon tableau croisé en matrice
+tab <- as.matrix(table(c$aspect, c$magnetisme))
+# Créer la table des fréquences relatives
+prop.table(tab)
+```
+
+Pour améliorer la lecture on peut transformer le résultat en pourcentage (multiplier par 100) et arrondir à deux chiffres derrière la virgule (avec la fonction `round`)
+```{r, eval=FALSE}
+# Créer la table des fréquences relatives
+round(prop.table(tab)*100,2)
+```
+
+Il serait intéressant de calculer les pourcentages en lignes puis les pourcentages en colonnes mais je vous laisse consulter la section dédiée qui utilise une extension dédié a ce type d'analyse (enquête en sociologie : `questonr`.
+
+### Test du χ²
+
+On peut éventuellement compléter ce tableau croisé par un test d'indépendance du χ². Celui-ci permet de rejeter l'hypothèse d'indépendance (hypothèse nulle ou H0) des lignes et des colonnes du tableau, c'est à dire de rejeter l'hypothèse que les écarts à l'indépendance observés seraient uniquement dus au biais d'échantillonnage (au fait qu'on n'a pas interrogé toute notre population).
+
+Pour effectuer un test de ce type, on applique la fonction `chisq.test` au tableau croisé calculé précédemment :
+
+```{r, eval=FALSE}
+chisq.test(tab)
+```
+
+Le résultat nous indique trois valeurs : 
+
+- `X-squared`, la valeur de la statistique du χ² pour notre tableau, c'est-à-dire une "distance" entre notre tableau observé et celui attendu si les deux variables étaient indépendantes.
+- `df`, le nombre de degrés de libertés du test.
+C'est avec c'est 2 mesures et le report sur un tableau de distribution de χ² que l'on détermine le risque d'erreur de rejeter H0 à tord. (ici inférieur à 0.01) 
+- `p-value`, le fameux *p*, qui indique la probabilité d'obtenir une valeur de la statistique du χ² au moins aussi extrême sous l'hypothèse d'indépendance.
+Quelques explications bien faites sur le χ² par [Grassland] (http://grasland.script.univ-paris-diderot.fr/STAT98/stat98_8/stat98_8.htm)
+
+Ici, le *p* est extrêmement petit (1.686e-09 soit 0,000000001686), donc certainement en-dessous du seuil de décision choisi préalablement au test (souvent 5%, soit 0.05). On peut donc rejeter l'hypothèse d'indépendance des lignes et des colonnes du tableau.
+
+En complément du test du χ², on peut aussi regarder les *résidus* de ce test pour affiner la lecture du tableau. 
+En fait, derrière la fonction `chisq.test(tab)`se cahe tout ce dont on a besoin. Il suffit de la stocker dans un objet et de regarder sa structure.
+
+```{r, eval=FALSE}
+# je stocke le test du chi-deux dans l'objet chi
+chi <- chisq.test(tab)
+# je regarde la structure de l'objet chi
+str(chi)
+```
+En effet j'ai:     
+* une variable `chi$observed` contenant les valeurs observées.     
+* une variable `chi$expected` contenant les valeurs attendue sous l'hypothèse d'indépendance (si les variables étaient indépendantes).   
+* une variable `chi$residuals` contenant les valeurs résiduelles.
+
+On peut afficher le tableau des valeurs observées et celui des valeurs attendues:
+```{r, eval=FALSE}
+# tableau des valeurs observées
+chi$observed
+# tableau des valeurs attendues sous H0
+round(chi$expected,0)
+```
+On peut déjà comparer ces 2 tableaux !
+OU afficher le tableau des valeurs résiduelles c'est à dir la contribution au khi-deux de chaque couple de variable.
+```{r, eval=FALSE}
+# tableau des valeurs observées
+chi$residuals
+```
+
+L'interprétation des résidus est la suivante :
+- si la valeur du résidu pour une case est inférieure à -2, alors il y a une sous-représentation de cette case dans le tableau : les effectifs sont significativement plus faibles que ceux attendus sous l'hypothèse d'indépendance
+- à l'inverse, si le résidu est supérieur à 2, il y a sur-représentatation de cette case
+- si le résidu est compris entre -2 et 2, il n'y a pas d'écart à l'indépendance significatif
+
+Les résidus peuvent être une aide utile à l'interprétation, notamment pour des tableaux de grande dimension.
+
+### Représentation graphique
+
+Il est possible de faire une représentation graphique d'un tableau croisé, par exemple avec la fonction `mosaicplot` :
+```{r, fig.height=6, fig.width=6 , eval=FALSE}
+mosaicplot(tab)
+```
+Et même y ajouter des couleurs..
+```{r, fig.height=6, fig.width=6, eval=FALSE}
+mosaicplot(tab, las = 1, shade = TRUE)
+```
+Chaque rectangle de ce graphique
+représente une case de tableau. Sa largeur correspond au pourcentage des modalités en colonnes (il y'a beaucoup de scories de culot d'aspect régulier). Sa hauteur correspond aux pourcentages colonnes : la proportion de culot sans aucun magnétisme est très faible pour les scories d'aspect irrégulier *a contrario* des scories d'aspect lisse.
+Enfin, la couleur de la case correspond au résidu du test du χ² correspondant : les cases en rouge sont sous-représentées (résidu < -2), les cases en bleu sur-représentées (résidu > 2), et les cases blanches (et contour tireté) sont proches des effectifs attendus sous l'hypothèse
+d'indépendance (résidu entre -2 et 2).
+
+## Croisement d'une variable quantitative et d'une variable qualitative
+
+### Représentation graphique
+
+Croiser une variable quantitative et une variable qualitative, c'est **essayer de voir si les valeurs de la variable quantitative se répartissent différemment selon la catégorie d'appartenance de la variable qualitative**.
+
+Pour cela, l'idéal est de commencer par une représentation graphique de type "boîte à moustache" à l'aide de la fonction `boxplot`. Par exemple, si on veut visualiser la répartition des poids des scories de culot selon leur magnétisme, on va utiliser la syntaxe suivante :
+
+```{r eval=FALSE}
+boxplot(c$poids ~ c$magnetisme, horizontal = T, las =1)
+```
+
+```{block type='rmdnote'}
+Cette syntaxe de `boxplot` utilise une nouvelle notation de type "formule". Ici **le `~` peut se lire comme "en fonction de"** : on veut représenter la boxplot du poids en fonction du magnétisme.
+```
+
+
+L'interprétation d'un boxplot est la suivante : Les bords inférieurs et supérieurs du carré central représentent le premier et le troisième quartile de la variable représentée sur l'axe vertical. On a donc 50% de nos observations dans cet intervalle. Le trait horizontal dans le carré représente la médiane. Enfin, des "moustaches" s'étendent de chaque côté du carré, jusqu'aux valeurs minimales et maximales, avec une exception : si des valeurs sont éloignées du carré de plus de 1,5 fois l'écart interquartile (la hauteur du carré), alors on les représente sous forme de points (symbolisant des valeurs considérées comme "extrêmes", "atypiques").
+
+Dans le graphique ci-dessus, on voit que les scories n'ayant aucun magnétisme (elles ne réagissent pas à l'aimant) sont plus légère que les autres.
+
+Une autre façon de comparer 2 variables, une qualitative et une quantitative et de faire une comparaison d'indicateur de la variable quantitative (la moyenne par exemple) selon les modalités de la variable qualitative.
+
+On utilise pour cela la fonction `tapply()`:
+```{r eval=FALSE}
+tapply(c$poids, c$magnetisme, mean)
+```
+
+Il aurait été possible de filtrer la variable quantitative `poids` selon une catégorie de la variable qualitative `aspect`. Grâce à l'usage des crochets... qui permettent d'isoler un ou une valeur d'une série.
+
+Par exemple pour isoler la troisième valeur:
+```{r eval=FALSE}
+c$poids[3]
+```
+Pour isoler les valeurs du 10ème au 20ème individu:
+```{r eval=FALSE}
+c$poids[10:20]
+```
+Et pour isoler les valeurs qui n'ont aucun `magnetisme`:
+```{r eval=FALSE}
+c$poids[c$magnetisme == "Aucun"]
+```
+On peut donc regarder la distribution de ce types de scories:
+```{r eval=FALSE}
+hist(c$poids[c$magnetisme == "Aucun"])
+```
+Et la comparer à la distribution des scories à fort `magnetisme`:
+```{r eval=FALSE}
+hist(c$poids[c$magnetisme == "Fort"])
+```
+Ceci dit les boîtes à moustaches faisaient déjà assez bien le boulot!
+
+De la même manière on peut calculer la moyenne de chaque sous-série:
+```{r eval=FALSE}
+mean(c$poids[c$magnetisme == "Aucun"])
+mean(c$poids[c$magnetisme == "Fort"])
+```
+Mais la fonction `tapply`le faisait très bien, continuons donc...
+
+## Croisement de deux variables quantitatives
+
+Le plus facile pour travailler avec deux variables quantitatives est d'en faire une
+
+### Représentation graphique
+
+On peut par exemple mettre en relation les variables `longueur`et `largeur` avec la fonction de base de R pour tracer un graphique: la fonction `plot` avec comme 1er argument la variable en abcisse et comme 2ème argument celle en ordonnée:
+```{r eval=FALSE}
+plot(c$longueur,c$largeur)
+```
+Il semble donc y avoir un rapport entre longueur et largeur de culots soit une probable dépendance linéaire positive.
+
+Voici quelques exemples d'interprétation :
+
+```{r, echo = FALSE, fig.height=10, fig.width=6}
+par(mfrow=c(3,2))
+
+x <- rnorm(100)
+y <- 2*x + 1 + rnorm(100, 0, 0.4)
+plot(x, y, main = "Dépendance linéaire positive", 
+     xlab = "", ylab = "", col="red")
+
+x <- rnorm(100)
+y <- -3*x + 15 + rnorm(100, 0, 0.4)
+plot(x, y, main = "Dépendance linéaire négative", 
+     xlab = "", ylab = "", col="red")
+
+x <- rnorm(100)
+y <- exp(x) + 1 + rnorm(100, 0, 0.4)
+plot(x, y, main = "Dépendance non-linéaire monotone", 
+     xlab = "", ylab = "", col="red")
+
+x <- rnorm(100)
+y <- 2*x^2 + 1 + rnorm(100, 0, 0.4)
+plot(x, y, main = "Dépendance non-linéaire non monotone", 
+     xlab = "", ylab = "", col="red")
+
+x <- rnorm(100)
+y <- rnorm(100)
+plot(x, y, main = "Indépendance", 
+     xlab = "", ylab = "", col="red")
+
+x <- rnorm(100)
+y <- rnorm(100, 0, 0.03)
+plot(x, y, main = "Indépendance", 
+     xlab = "", ylab = "", col="red", ylim = c(-2,2))
+
+```
+
+### Calcul d'indicateurs 
+
+En plus d'une représentation graphique, on peut calculer certains indicateurs permettant de mesurer le degré d'association de deux variables quantitatives.
+
+#### Corrélation linéaire (Pearson)
+
+La corrélation est une mesure du lien d'association *linéaire* entre deux variables quantitatives. Sa valeur varie entre -1 et 1. Si la corrélation vaut -1, il s'agit d'une association linéaire négative parfaite. Si elle vaut 1, il s'agit d'une association linéaire positive parfaite. Si elle vaut 0, il n'y a aucune association linéaire entre les variables.
+
+On la calcule dans R à l'aide de la fonction `cor`.
+
+Ainsi la corrélation entre longueur et largeur des scories de culots:
+
+```{r, eval=FALSE}
+cor(c$longueur, c$largeur)
+```
+
+0.72 ce qui est  fort. Il y a donc un lien linéaire et positif entre les deux variables (quand la valeur de l'une augmente, la valeur de l'autre augmente également).
+
+
+#### Corrélation des rangs (Spearman)
+
+Le coefficient de corrélation de Pearson ci-dessus fait une hypothèse forte sur les données : elles doivent être liées par une association linéaire. Quand ça n'est pas le cas mais qu'on est en présence d'une association monotone, on peut utiliser un autre coefficient, le coefficient de corrélation des rangs de Spearman.
+
+Plutôt que de se baser sur les valeurs des variables, cette corrélation va se baser sur leurs rangs, c'est-à-dire sur leur position parmi les différentes valeurs prises par les variables.
+
+Ainsi, si la valeur la plus basse de la première variable est associée à la valeur la plus basse de la deuxième, et ainsi de suite jusqu'à la valeur la plus haute, on obtiendra une corrélation de 1. Si la valeur la plus forte de la première variable est associée à la valeur la plus faible de la seconde, et ainsi de suite, et que la valeur la plus faible de la première est associée à la plus forte de la deuxième, on obtiendra une corrélation de -1. Si les rangs sont "mélangés", sans rapports entre eux, on obtiendra une corrélation autour de 0.
+```{r, echo = FALSE, fig.height=10, fig.width=6}
+par(mfrow=c(3,2))
+
+x <- rnorm(100)
+y <- 2*x + 1 + rnorm(100, 0, 0.4)
+p <- round(cor(x, y), 2)
+s <- round(cor(x, y, method = "spearman"), 2)
+title <- paste0("Pearson : ", p, " - Spearman : ", s)  
+plot(x, y, main = title, 
+     xlab = "", ylab = "", col="red")
+
+x <- rnorm(100)
+y <- -3*x + 15 + rnorm(100, 0, 0.4)
+p <- round(cor(x, y), 2)
+s <- round(cor(x, y, method = "spearman"), 2)
+title <- paste0("Pearson : ", p, " - Spearman : ", s)  
+plot(x, y, main = title, 
+     xlab = "", ylab = "", col="red")
+
+x <- rnorm(100)
+y <- exp(x) + 1 + rnorm(100, 0, 0.4)
+p <- round(cor(x, y), 2)
+s <- round(cor(x, y, method = "spearman"), 2)
+title <- paste0("Pearson : ", p, " - Spearman : ", s)  
+plot(x, y, main = title, 
+     xlab = "", ylab = "", col="red")
+
+x <- rnorm(100)
+y <- 2*x^2 + 1 + rnorm(100, 0, 0.4)
+p <- round(cor(x, y), 2)
+s <- round(cor(x, y, method = "spearman"), 2)
+title <- paste0("Pearson : ", p, " - Spearman : ", s)  
+plot(x, y, main = title, 
+     xlab = "", ylab = "", col="red")
+
+x <- rnorm(100)
+y <- rnorm(100)
+p <- round(cor(x, y), 2)
+s <- round(cor(x, y, method = "spearman"), 2)
+title <- paste0("Pearson : ", p, " - Spearman : ", s)  
+plot(x, y, main = title, 
+     xlab = "", ylab = "", col="red")
+
+x <- rnorm(20)
+y <- x + 1 + rnorm(20, 0, 0.4)
+x <- c(x, 2, 1.8)
+y <- c(y, -2, -1.9)
+p <- round(cor(x, y), 2)
+s <- round(cor(x, y, method = "spearman"), 2)
+title <- paste0("Pearson : ", p, " - Spearman : ", s)  
+plot(x, y, main = title, 
+     xlab = "", ylab = "", col="red", ylim = c(-2,2))
+```
+
+
+La corrélation des rangs a aussi pour avantage d'être moins sensibles aux valeurs extrêmes ou aux points isolés. On dit qu'elle est plus "robuste".
+
+Pour calculer une corrélation de Spearman, on utilise la fonction `cor` mais avec l'argument `method = "spearman"` :
+
+```{r, eval=FALSE}
+cor(c$longueur, c$largeur, method = "spearman")
+```
+
+### Régression linéaire
+
+Quand on est en présence d'une association linéaire entre deux variables, on peut vouloir faire la régression linéaire d'une des variables sur l'autres. 
+
+Une régression linéaire simple se fait à l'aide de la fonction `lm` :
+
+```{r, eval = FALSE}
+lm(c$largeur~c$longueur)
+```
+
+```{block type='rmdnote'}
+On retrouve avec `lm` la syntaxe "formule" déjà rencontrée avec `boxplot`. Elle permet ici de spécifier des modèles de régression : la variable dépendante se place à gauche du `~`, et la variable indépendante à droite.
+```
+
+`lm` nous renvoit par défaut les coefficients de la droite de régression :
+
+- l'ordonnée à l'origine `(Intercept)` vaut 16.41
+- le coefficient associé à `dipl_sup` vaut 0.859
+
+On peut ajouter au graphique la droite de regression que l'on calcule avec la fonction `lm()`et que l'on trace avec la fonction `abline()`
+```{r eval=FALSE}
+plot(c$longueur,c$largeur)
+abline(lm(c$largeur~c$longueur), lwd=2, col = "red")
+```
+Noter: l'utilisation du paramètre graphique `lwd=` pour définir l'épaisseur de la ligne. 
+
+## Organiser ses scripts
+
+## Répartir son travail entre plusieurs scripts
+
+Si le script devient très long, les sections peuvent ne plus être suffisantes. De plus, il est souvent intéressant d'isoler certaines parties d'un script, par exemple pour pouvoir les mutualiser. On peut alors répartir les étapes d'une analyse entre plusieurs scripts.
+On créé un script `analyses_recurentes.R`
+
+Puis dans le script principal on utilise la fonction `source` : celle-ci prend en paramètre un nom de fichier `.R`, et quand on l'exécute elle va exécuter l'ensemble du code contenu dans ce fichier.
+
+

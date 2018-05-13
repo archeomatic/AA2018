@@ -1,0 +1,408 @@
+---
+title: "AA18.1: Découverte du tidyverse 4"
+output:
+  html_document:
+    df_print: paged
+---
+
+# Nettoyage d'un jeu de données avec les packages `dplyr` et `tidyr`     
+
+Nous allons ici partir d'un tableau d'inventaire de lots de céramiques de La Tène finale au format Excel. L'objectif est d'une part de nettoyer ce tableau (supprimer les colonnes inutiles, modifier leur nom, selectionner certains enregistrements, refactoriser certaines valeurs, etc...). Aussi nous transformerons ce tableau d'inventaire afin d'obtenir un tableau mis en forme pour l'ATeliers Archéomatique de demain, avec des périodes chronologiques en lignes (les horizons définis par l'étude céramologique) et des variables quantitatives en colonnes (des nombres de restes par origines de productions).
+
+## Prologue     
+
+Avant tout j'active les package dont j'ai besoin :
+```{r}
+library(tidyverse)
+library(readxl)
+```
+
+
+Puis j'importe mon fichier excel `Amboise_ceram.xls`:    
+
+* soit en cliquant dessus et en choisissant l'option `Import dataset`     
+* soit directement avec la fonction `read_excel`
+
+> Attention à attribuer un nom d'objet simple `cer`dans notre exemple
+
+```{r, warning=FALSE}
+cer <- read_xls("Amboise_ceram.xls")
+```
+
+
+Il y a 3 façons simple de regarder / explorer les données nouvellement importées:    
+
+* en regardant la table à la façon d'un tableur avec la foncton `View`  
+```{r, eval=FALSE}
+View(cer)
+```
+* en regardant la structure de la table avec la fonction `str` 
+```{r}
+str(cer)
+```
+* en affichant un résumé statistique des variables de la table avec la fonction `summary`  
+```{r}
+summary(cer)
+```
+
+## Nettoyage du tableau à l'aide des outils du `tidyverse`     
+
+### Les colonnes (selection, renommage)      
+
+Plusieurs colonnes ne m'intéressent pas: la 3 (Sd), la 4 (Carré), la 9 (Variante) que des NA, la 13 (DATATION (éléments)), et la 16 (X_1) (colonne vide). Je veux donc éliminer ces colonnes ou plutôt ne stocker dans l'objet `cer`que les colonnes qui m'interessent. J'utilise la fonction `select`du package `dplyr`. La fonction `select`prend comme premier argument la table a traiter puis les colonnes a sélectionner et à éliminer (elles sont alors précédées du signe moins `-`). On peut utiliser leur numéro de rang ou leur nom sous forme de texte (a mettre entre guillemets `" "` si le nom comporte des caractères spéciaux ou accentués)
+```{r}
+cer <- dplyr::select(cer, 1:15, -3, -4, -9, -13)
+```
+
+> NOTE: Le préfixe dplyr:: permet d'imposer le package utilisé en cas de nom de fonction en conflit entre plusieurs package.Il n'est pas nécessaire ici mais permet de savoir dans quel package se trouve la fonction.On peut donc tout simplement taper:
+
+```{r, eval = FALSE}
+cer <- select(cer, 1:15, -3, -4, -9, -13)
+```
+
+> NOTE2: je stocke le résultat dans l'objet cer pour le garder
+
+Je peux vérifier le résultat en refaisant un `str`
+```{r}
+str(cer)
+```
+
+On peut aussi tout simplement regarder seulement le nom des colonnes avec la fonction `names`
+```{r}
+names(cer)
+```
+
+Cette même fonction peut permettre de modifier les noms de colonnes. Il est recommandé d'avoir des noms de variables simples, court, explicite et en minuscule
+```{r}
+names(cer) <- c("lot","fait", "us", "group_tech", "production", "forme", "fonction", "nr", "nmi", "datation", "horizon")
+```
+
+Il existe aussi une fonction equivalente dans le package `dplyr`
+```{r}
+cer <- dplyr::rename(cer, chrono = datation)
+```
+
+L'objet de ce script est de préparer ce tableau pour faire une analyse statistique. Il peut être utile pour certaines variables qualitatives de regarder les modalités (leur nombre et la façon dont elles ont été enregistrée). Par exemple regarder toutes les modalités (toutes les valeurs uniques) de la variable `groupe_tech` avec la fonction `unique`
+```{r}
+unique(cer$group_tech)
+```
+=> Il ya 147 modalités !! nous ne pouvons rien en faire nous allons donc éliminer cette colonne
+
+```{r}
+cer <- dplyr::select(cer, -group_tech)
+```
+
+> NOTE: nous avons utilisé directement le nom de la colonne (au lieu de son rang comme précedemment)
+
+> EXERCICE: identifier les différentes modalités de la variable horizon
+
+```{r}
+unique(cer$horizon)
+```
+=> On remarque que certains enregistrements de l'appartenance à un horizon sont flous (plusieurs horizons ex: 1_2_3 )!
+
+## Les lignes / enregistrements (filtre, tri, recodage)      
+
+On peut éliminer les lignes pour lesquelles les valeurs pour la variable `horizon`est incertaine, mais aussi les horizons suivre les conseils de la céramologue de n'étudier que les lots de céramiques appartenant aux horizons 1, 2, 3 et 4 (et donc éliminer ceux > 4). 
+Ceci est possible grâce à la fonction `filter` du package `dplyr`. La fonction `filter`prend comme premier argument la table à traiter suivi des conditions définissant les lignes à garder. On peut alors utiliser les opérateurs logiques.
+
+ Opérateur  | définition
+ ---------- | --------------
+ a == b     | a est strictement égal à b
+ a < b      | a est strictement inférieur à b
+ a > b      | a est strictement supérieur à b
+ a <= b     | a est inférieur ou égal à b
+ a >= b     | a est supérieur ou égal à b
+ a != b     | a est différent de b
+ a %in% c(b,c) | a est compris dans la liste b,c
+
+```{r}
+cer <- dplyr::filter(cer, horizon %in% c(1,2,3,4))
+```
+
+Ou encore (requête équivalente)
+```{r, eval = FALSE}
+cer <- dplyr::filter(cer, horizon %in% 1:4)
+
+```
+
+>NOTE: on peut utiliser les opérateurs logiques & (AND), | (OR) ! (NOT), %in% (IN)
+
+
+On peut maintenant trier le tableau selon la variable horizon avec la fonction `arrange`. La fonction `arrange`prend comme premier argument la table à traiter suivi de la (les) variable(s) qui vont servir au tri ascendant (par ordre croissant).
+```{r}
+cer <- dplyr::arrange(cer, horizon)
+```
+Pour trier par ordre descendant (décroissant) il faut ajouter l'argument desc ainsi: `arrange(cer, desc(horizon)`
+
+Il faut aussi savoir que l'on peut extraire des données selon les numéros de lignes avec la fonction `slice`. La fonction `slice` prend comme premier argument la table à traiter suivi des lignes à extraire (selon leur rang / ordre d'enregistrement). Par exemple, pour extraire les 10 premières lignes
+```{r}
+dplyr::slice(cer, 1:10)
+```
+Mais cela n'a pas d'utilité ici !
+
+On peut aussi vouloir ajouter une colonne issue d'un calcul par exemple la fréquence relative de chaque nr par rapport à la totalité grâce à la fonction `mutate`. La fonction `mutate` prend comme premier argument la table, puis le `nom de la nouvelle colonne` suivi d'un `=` suivi du `calcul`. 
+```{r}
+cer <- dplyr::mutate(cer, freq_nr = nr/sum(nr)*100)
+```
+
+Intéressons nous maintenant à la variable `production` qui indique les provenances des lots de céramiques
+
+On regarde les différentes modalités (valeurs uniques) de la variable
+```{r}
+unique(cer$production)
+```
+On peut auusi vouloir avoir le décompte d'enregistrements par modalités grâce à la fonction `table`
+```{r}
+table(cer$production)
+```
+=> C'est le bordel non ? (Majuscule/minuscule, incertitudes... Il va falloir recoder tout cela !
+
+## Recodage / Refactorisation avec le package `forcats`      
+
+Cela tombe bien il existe un package du Tidyverse déié à cela : `forcats`. Mais il ya mieux: un package offrant une interface pour le faire !
+Il faut pour cela installer le package `questionr` fait par et pour les sociopathes ;) grands amateurs de variables qualitatives !
+
+```{r, eval = FALSE}
+install.packages("questionr")
+```
+Puis on l'active
+
+```{r}
+library(questionr)
+```
+
+On utilise la fonction pour recoder une variable qualitative `irec` avec comme seul argument la variable à recoder. On ne va au final, ne garder que 4 modalités: `locale`, `gauloise`, `mediteraneenne`, `indeterminee`
+```{r, eval = FALSE}
+irec(cer$production)
+```
+L'interface, limpide, se passe de commentaires quand à son fonctionnement. Il suffit de copier le résultat dans son script.. On obtient alors
+```{r}
+## Recodage de cer$production en cer$production_rec
+cer$production_rec <- fct_recode(cer$production,
+               "locale" = "Production locale",
+               "méditerranéenne" = "Importation méditerranéenne",
+               "gauloise" = "Importation gauloise",
+               "indéterminée" = "Indéterminée",
+               "indéterminée" = "ind",
+               "gauloise" = "importation gauloise",
+               "indéterminée" = "Production locale?",
+               "indéterminée" = "importation gauloise?",
+               "indéterminée" = "Importation gauloise?",
+               "locale" = "Production Locale",
+               "indéterminée" = "Importation Lyon",
+               "indéterminée" = "Importation gauloise/Production locale",
+               "indéterminée" = "Production Locale?",
+               "indéterminée" = "Production Locale ?",
+               "locale" = "Production régionale",
+               "indéterminée" = "Production lyonnaise?",
+               "indéterminée" = "La Graufesenque")
+cer$production_rec <- fct_explicit_na(cer$production_rec, "indéterminée")
+View(cer)
+```
+On vérifie le résultat en refaisant un tri à plat de la variable `production_rec`nouvellement créée:
+```{r}
+table(cer$production_rec)
+```
+
+> Cela peut paritre compliqué en comparaison avec l'usage d'un tableur (quoique ?) mais il y a un énorme avantage on ne touche pas au tableau de départ et cette opération est donc transparente, reproductible et modifiable.
+
+## Export d'un tableau au format `csv`      
+
+On est satisfait de la forme que nous avons donné au tableau, on peu donc l'enregistrer au format csv.
+Quand on veut sauvegarder le résultat de nos manipulations sous la forme d'un tableau csv on utilise la fonction `write_csv`suivi de l'objet a enregistrer puis du nom du fichier a sauvegarder (entre guillemets et avec l'extension). Le fichier sera enregistré dans le répertoire de travail par défaut.
+```{r}
+write_csv(cer, "Ceram_amboise.csv")
+```
+
+
+## Enchainer les opérations avec le pipe `%>%`      
+
+Nous savons faire plein de choses avec R et ses fonctions en enchainant les commandes lignes après lignes et en "écrasant" un objet... Ou en emboitant les fonctions...
+
+> EXEMPLE: on veux faire un diagramme en barre de la quantité de céramique `nr` par lieu de production `production$rec`par ordre décroissant: il faut donc:
+
+> * faire un tableau croisé avec la fonction `tapply`
+> * trier par ordre décroissant avec la fonction `sort` et l'argument `decreasing = TRUE`
+> * faire un diagramme en barre avec la fonction `barplot`
+
+### Solution 1: on emboîte les fonctions
+```{r}
+barplot(sort(tapply(cer$nr, cer$production_rec, sum), decreasing = TRUE))
+```
+=> Ca fonctionne mais:
+
+1) C'est dur à lire
+2) Les opérations apparaissent dans le sens inverse de leur execution
+3) Il est difficile de voir quel paramètre appartient à quelle fonction
+
+
+### Solution 2: on effectue les opérations les unes après les autres, en stockant le résultat intermédiaire dans un ojet temporaire
+```{r}
+toto <- tapply(cer$nr, cer$production_rec, sum)
+toto
+toto <- sort(toto, decreasing = TRUE)
+toto
+barplot(toto)
+```
+
+=> C'est plus lisible et on voit bien les arguments Mais
+1) C'est un peu "verbeux"
+2) l'objet toto ne sert à rien..
+Il existe un moyen de rendre le code plus lisible le pipe (Ctrl + shift + M). cela crée un tube, un pipeline qui permet de mettre le résultat de la fonction à gauche du pipe comme argument principal de la fonction à droite du pipe
+
+Par exemple:
+```{r}
+filter(cer, production_rec == "gauloise")
+```
+est équivalent à
+```{r}
+cer %>% filter(production == "gauloise")
+```
+
+
+### Solution 3: avec notre exemple on peut donc faire
+```{r}
+tapply(cer$nr, cer$production_rec, sum) %>% sort(decreasing=TRUE) %>% barplot
+```
+
+
+> EXERCICE NUL: stocker dans un objet cool un tableau contenant uniquement les colonnes forme et chrono pour les lots de céramiques de l'horizon 3, triés selon le NR
+```{r}
+cool <- cer %>% 
+  arrange(nr) %>%
+  filter(horizon == "3") %>% 
+  select(fonction, chrono)
+```
+> NOTE: quand on organise sont code sur plusieurs lignes le %>% doit être en bout de ligne.
+
+> On passe donc d'une écriture **verbe(sujet, complements)** à sujet **%>% verbe(complement)**
+
+## Opérations groupées avec la fonction `group_by`      
+
+On peut définir des groupes de lignes à partir d'une ou plusieurs colonnes. Par exemple grouper les lots de céramique selon leur horizon d'appartenance. On va utiliser la fonction `group_by` suivi de la variable qui va servir a regrouper les données (`horizon`dans notre exemple).
+```{r}
+cer %>% dplyr::group_by(horizon)
+```
+
+=> Rien ne semble s'être passé si ce n'est l'indication `Groups: horizon [4]` mais à partir du moment où des groupes ont été définis, les verbes comme `slice`, `mutate` ou `summarise` vont en tenir compte lors de leurs opérations.
+
+Ainsi si on applique le verbe `slice` après avoir groupé par horizon...
+```{r}
+cer %>% group_by(horizon) %>% slice(1)
+```
+le logiciel nous renvoie les 1ères lignes (dans l'ordre de saisie) pour chaque horizon
+
+De la même façon si on crée une colonne avec la fonction mutate il le fera en fonction des groupes
+```{r}
+cer %>% group_by(horizon) %>% mutate(freq_nr_horizon = nr/sum(nr)*100)
+```
+
+On le comprend peut être mieux quand on demande de créer une colonne content la somme de `nr` pour chaque groupe
+```{r}
+cer %>% group_by(horizon) %>% mutate(sum_group = sum(nr))
+```
+=> Cette colonne est bien entendue inutile pour notre analyse mais utile pour la démonstration !
+
+En effet si l'on désire connaitre la somme des nr (ou tout autre calcul) par groupe il existe une fonction de résumé dédiée: la fonction `summarise` qui prend comme argument le `nom de la nouvelle variable`suivie du signe `=` puis la `fonction de calcul`, par exemple:
+```{r}
+cer %>% group_by(horizon) %>% dplyr::summarise(sum = sum(nr))
+```
+
+> EXERCICE: calculer la moyenne des `nmi` par `fait`
+```{r}
+cer %>% group_by(fait) %>% summarise(sum_nr=sum(nr), sum_nmi=sum(nmi))
+```
+
+Il existe aussi un opérateur spécial pour la fonction summarise pour compter les enregistrements: `n()`. Ainsi pour compter le nombre de lots par faits:
+```{r}
+cer %>% group_by(fait) %>% summarise(nb = n())
+```
+
+On peut aussi faire un regroupement sur plusieurs variables. Si l'on veut compter le nombre de lot par `fait` et par `us` :
+```{r}
+cer %>% group_by(fait, us) %>% summarise(nb = n()) %>% arrange(nb)
+```
+
+## Ranger / réordonner ses données tabulées avec le package `tidyr`       
+
+Mais revenons à nos moutons...euh à nos céram ;). L'objectif ici est de préparer la journée de demain en créant un tableau contenant:
+
+* de la chrono en ligne: mes horizons conviendront parfaitement
+* de la quantification en colonnes: je voudrais pour chaque origine de production, la somme des nr
+
+S'il fallait faire un simple **tableau de contingence* des 2 variables, on sait faire avec la fonction `table`:
+```{r}
+tab <- table(cer$horizon, cer$production_rec)
+```
+=> Mais je veux la somme des nr !
+
+Avec les fonctions `group_by` et `summarise` nous pouvons créer la somme des nr pour chaque couple horizon / production_rec
+```{r}
+tab2 <- cer %>% group_by(horizon, production_rec) %>% summarise(sum_nr = sum(nr))
+tab2
+```
+=> Ok ca marche mais par contre il ne ressemble pas a un tableau croisé comme on en a l'habitude ?! Il est en longueur plutôt qu'en largeur.
+
+Encore une fois cela tombe bien car il existe un package du tidyverse dédié aux manipulation de rangement des données c'est le package `tidyr`. **tidy** veut dire "rangé" (le contraire c'est "messy").
+
+> Il n'y a que 3 règles de bases (qui paraissent simples mais...)
+
+> 1) chaque ligne correspond à une observation
+> 2) chaque colonne correspond à une variable (ou un cas).. c'est la que c'est pas simple
+> 3) chaque valeur doit être présente dans une seule case (sinon il faut une autre table) par ex. les colonnes `chrono` et `horizon` sont redondantes, il faudrait -pour être tidy- n'en garder qu'une seule et créer une table avec les colonnes `horizon` et `chrono`.
+
+Pour passer d'un tableau long à un tableau large on utilise la fonction `spread` ("étendre" comme dans *man-spreading*) ;) La fonction `spread` prend 2 arguments:
+
+* l'argument `key =` suivi de la colonne a mettre en largeur
+* l'argument `value =` de la colonne contenant les valeurs
+
+```{r}
+tab3 <- tab2 %>% spread(key=production_rec,value=sum_nr)
+tab3
+```
+
+
+On peut enregistrer le résultat de nos efforts dans un tableau a exploiter demain avec la fonction `write_csv`
+```{r}
+write_csv(tab3, "Tab_croise_AMboise.csv")
+```
+
+> NOTE: le logiciel enregistre le tableau dans le répertoire de travail
+
+Pour faire l'inverse, c'est à dire passer d'un tableau en largeur à un tableau en longueur on utilise `gather` ("rassembler") 
+
+Les arguments sont
+
+1) les noms colonnes à rassembler ou -celle a ne pas prendre en compte
+2) key = le nom de la colonne créée récupérant les coms de colonnes en modalités
+3) value = nom de la colonne créée récupérant les valeurs
+```{r}
+tab3 %>% gather(-horizon, key = origine, value = sum_nr)
+```
+
+On peut aussi séparer une colonne en plusieurs colonnes avec la fonction `separate`. La fonction `separate` prend 2 arguments principaux:
+
+1) la colonne à traiter
+2) un vecteur indiquant (entre guillemets) le noms des nouvelles colonnes qui recoivent les valeurs issues de la "séparation".
+3) on peut aussi ajouter l'argument `sep =` suivi du caractère qui va servir de séparateur. (`" "` pour indiquer de séparer au niveau des espaces)
+On aurait pu ainsi tenter de nettoyer la colonne `production`:
+```{r}
+test <- cer %>% separate(production, c("prefixe", "origine"))
+test
+```
+```{r, eval = FALSE}
+View(test)
+```
+> NOTE: remarquer que si l'on ne définit pas de séparateur la fonction coupe aux caracteres non alphanumérique (espace, tiret, slash..)
+
+
+L'inverse c'est à dire l'équivalent de la concaténation c'est la fonction `unite`. Si on veut faire une colonne d'identifiant basée sur la concatenation des colonnes lot, fait et us, par exemple:
+```{r}
+cer %>%  unite(ID, lot, fait, us)
+```
+
+> NOTE: par défaut il ajoute un _ entre les termes concaténés et supprime les colonnes d'origine ! On peut éviter cela avec les arguments `sep =` et `remove = FALSE` ainsi:
+```{r}
+cer %>%  unite(ID, lot, fait, us, sep = " ", remove = FALSE)
+```
