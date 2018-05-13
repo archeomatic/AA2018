@@ -477,3 +477,5 @@ dotchart(sort(t))
 ```
 
 Notez que toutes les étiquettes n'apparaissent pas sur le diagramme en barre. On peut utiliser l'argument `las = 2` (0 = étiquettes parrallèles aux graduations, 1= horizontales)
+
+Vos premiers travaux effectués... essentiellement sur des statistiques univariées, il est temps de voir comment [croiser deux variables](https://github.com/archeomatic/AA2018/blob/master/A18_1_3_Croiser_Deux_Variables.Rmd)
