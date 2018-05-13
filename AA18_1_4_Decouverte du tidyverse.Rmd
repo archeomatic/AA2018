@@ -406,3 +406,5 @@ cer %>%  unite(ID, lot, fait, us)
 ```{r}
 cer %>%  unite(ID, lot, fait, us, sep = " ", remove = FALSE)
 ```
+
+Enfin, la fin est proche... il reste cependant a s'initier à [Représenter ces données avec ggplot](https://github.com/archeomatic/AA2018/blob/master/A18_1_5_Representer_avec_ggplot2.Rmd)
