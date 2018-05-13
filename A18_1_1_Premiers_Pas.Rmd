@@ -400,3 +400,4 @@ imc <- poids / (tailles / 100) ^ 2
 min(imc)
 max(imc)
 ```
+Vous avez fait vos premiers pas ! il est temps de passer à vos [Premiers travaux](https://github.com/archeomatic/AA2018/blob/master/A18_1_2_Premiers_Travaux.Rmd)
