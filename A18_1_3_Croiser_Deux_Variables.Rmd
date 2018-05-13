@@ -356,4 +356,4 @@ On créé un script `analyses_recurentes.R`
 
 Puis dans le script principal on utilise la fonction `source` : celle-ci prend en paramètre un nom de fichier `.R`, et quand on l'exécute elle va exécuter l'ensemble du code contenu dans ce fichier.
 
-
+Rstudio n'ayant plus de secrets pour vous, allons faire un tour à la [découverte du tidyverse](https://github.com/archeomatic/AA2018/blob/master/AA18_1_4_Decouverte%20du%20tidyverse.Rmd)
