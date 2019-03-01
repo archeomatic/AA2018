@@ -5,6 +5,10 @@ Dépôt pour les [Ateliers Archéomatiques 2018](http://isa.univ-tours.fr/spip.p
 
 Présentation et jeu de données de **Sylvain Badey** (Inrap - UMR 7324 Citères - Lat)
 
+## Notes:
+
+Le diaporama d'introduction est disponible ici => https://slides.com/archeomatic/aa181 (utiliser les flèches directionelles pour naviquer et la touche [Echap.] pour avoir une vue générale)
+
 ## Résumé:
 
 L’usage de méthodes statistiques pour exploiter des données archéologiques est essentiel pour dépasser le caractère documentaire de celles-ci. L’usage du logiciel de statistique libre, gratuit et multiplateforme R est de plus en répandu dans les disciplines scientifiques, notamment en SHS. Alors qu’il est utilisé dans des domaines liés à notre discipline, son usage est encore peu commun chez les archéologues.
